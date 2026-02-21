@@ -24,6 +24,9 @@ jobs:
       RUN_MODE: ${{ secrets.MIHOYO_RUN_MODE }}
       MIHOYO_CONFIG_YAML: ${{ secrets.MIHOYO_CONFIG_YAML }}
       MIHOYO_CONFIG_TGZ_BASE64: ${{ secrets.MIHOYO_CONFIG_TGZ_BASE64 }}
+      MIHOYO_COOKIE: ${{ secrets.MIHOYO_COOKIE }}
+      MIHOYO_STOKEN: ${{ secrets.MIHOYO_STOKEN }}
+      MIHOYO_GAMES_CN: ${{ secrets.MIHOYO_GAMES_CN }}
       MIHOYO_PUSH_INI: ${{ secrets.MIHOYO_PUSH_INI }}
       MIHOYO_LOGGING_INI: ${{ secrets.MIHOYO_LOGGING_INI }}
       AutoMihoyoBBS_config_prefix: ${{ secrets.MIHOYO_CONFIG_PREFIX }}
@@ -56,8 +59,104 @@ jobs:
             tar -xzf /tmp/mhy_config.tgz -C config
           elif [ -n "${MIHOYO_CONFIG_YAML:-}" ]; then
             printf "%s" "${MIHOYO_CONFIG_YAML}" > config/config.yaml
+          elif [ -n "${MIHOYO_COOKIE:-}" ]; then
+            python - <<'PY'
+          import os
+          import yaml
+
+          cookie = os.environ.get("MIHOYO_COOKIE", "")
+          stoken = os.environ.get("MIHOYO_STOKEN", "")
+          games_cn = os.environ.get("MIHOYO_GAMES_CN", "")
+
+          if not cookie:
+              raise SystemExit("MIHOYO_COOKIE is empty")
+
+          enabled = set()
+          for part in games_cn.replace(" ", ",").split(","):
+              part = part.strip()
+              if part:
+                  enabled.add(part)
+
+          def game_cfg(name: str):
+              return {"checkin": name in enabled, "black_list": []}
+
+          config = {
+              "enable": True,
+              "version": 15,
+              "push": "",
+              "account": {
+                  "cookie": cookie,
+                  "stuid": "",
+                  "stoken": stoken or "",
+                  "mid": "",
+              },
+              "device": {
+                  "name": "Xiaomi MI 6",
+                  "model": "Mi 6",
+                  "id": "",
+                  "fp": "",
+              },
+              "mihoyobbs": {
+                  "enable": False,
+                  "checkin": True,
+                  "checkin_list": [5, 2],
+                  "read": True,
+                  "like": True,
+                  "cancel_like": True,
+                  "share": True,
+              },
+              "games": {
+                  "cn": {
+                      "enable": True,
+                      "useragent": "Mozilla/5.0 (Linux; Android 12; Unspecified Device) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/103.0.5060.129 Mobile Safari/537.36",
+                      "retries": 3,
+                      "genshin": game_cfg("genshin"),
+                      "honkai2": game_cfg("honkai2"),
+                      "honkai3rd": game_cfg("honkai3rd"),
+                      "tears_of_themis": game_cfg("tears_of_themis"),
+                      "honkai_sr": game_cfg("honkai_sr"),
+                      "zzz": game_cfg("zzz"),
+                  },
+                  "os": {
+                      "enable": False,
+                      "cookie": "",
+                      "lang": "zh-cn",
+                      "genshin": game_cfg("os.genshin"),
+                      "honkai3rd": game_cfg("os.honkai3rd"),
+                      "tears_of_themis": game_cfg("os.tears_of_themis"),
+                      "honkai_sr": game_cfg("os.honkai_sr"),
+                      "zzz": game_cfg("os.zzz"),
+                  },
+              },
+              "cloud_games": {
+                  "cn": {
+                      "enable": False,
+                      "genshin": {"enable": False, "token": ""},
+                      "zzz": {"enable": False, "token": ""},
+                  },
+                  "os": {
+                      "lang": "zh-cn",
+                      "enable": False,
+                      "genshin": {"enable": False, "token": ""},
+                  },
+              },
+              "competition": {
+                  "enable": False,
+                  "genius_invokation": {
+                      "enable": False,
+                      "account": [],
+                      "checkin": False,
+                      "weekly": False,
+                  },
+              },
+              "web_activity": {"enable": False, "activities": []},
+          }
+
+          with open("config/config.yaml", "w", encoding="utf-8") as f:
+              yaml.safe_dump(config, f, allow_unicode=True, sort_keys=False)
+          PY
           else
-            echo "缺少配置：请在仓库 Secrets 中设置 MIHOYO_CONFIG_YAML 或 MIHOYO_CONFIG_TGZ_BASE64" >&2
+            echo "缺少配置：请在仓库 Secrets 中设置 MIHOYO_CONFIG_YAML / MIHOYO_CONFIG_TGZ_BASE64 / MIHOYO_COOKIE" >&2
             exit 1
           fi
 
