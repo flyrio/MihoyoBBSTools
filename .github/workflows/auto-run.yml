@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONUNBUFFERED: "1"
+      AUTO_MIHOYO_ALLOW_GITHUB_ACTIONS: "1"
       RUN_MODE: ${{ secrets.MIHOYO_RUN_MODE }}
       MIHOYO_CONFIG_YAML: ${{ secrets.MIHOYO_CONFIG_YAML }}
       MIHOYO_CONFIG_TGZ_BASE64: ${{ secrets.MIHOYO_CONFIG_TGZ_BASE64 }}
