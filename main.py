@@ -146,13 +146,13 @@ def task_run() -> None:
     try:
         status_code, message = main()
         push_message = message
-    except CookieError:
+    except CookieError as e:
         status_code = StatusCode.FAILURE.value
-        push_message = f"账号 Cookie 出错！\n{message}"
+        push_message = f"账号 Cookie 出错！\n{e}"
         log.error("账号 Cookie 有问题！")
-    except StokenError:
+    except StokenError as e:
         status_code = StatusCode.FAILURE.value
-        push_message = f"账号 Stoken 出错！\n{message}"
+        push_message = f"账号 Stoken 出错！\n{e}"
         log.error("账号 Stoken 有问题！")
 
     push.push(status_code, push_message)
