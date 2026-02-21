@@ -1,0 +1,79 @@
+name: MihoyoBBSTools Auto Run
+
+on:
+  schedule:
+    # GitHub Actions 的 cron 使用 UTC 时间；此处 16:30 UTC = 中国时间 次日 00:30（约凌晨12点半）
+    - cron: "30 16 * * *"
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: "运行模式：single(单用户) / multi(多用户)"
+        required: false
+        default: "multi"
+
+concurrency:
+  group: mihoyo-bbs-auto-run
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: "1"
+      RUN_MODE: ${{ secrets.MIHOYO_RUN_MODE }}
+      MIHOYO_CONFIG_YAML: ${{ secrets.MIHOYO_CONFIG_YAML }}
+      MIHOYO_CONFIG_TGZ_BASE64: ${{ secrets.MIHOYO_CONFIG_TGZ_BASE64 }}
+      MIHOYO_PUSH_INI: ${{ secrets.MIHOYO_PUSH_INI }}
+      MIHOYO_LOGGING_INI: ${{ secrets.MIHOYO_LOGGING_INI }}
+      AutoMihoyoBBS_config_prefix: ${{ secrets.MIHOYO_CONFIG_PREFIX }}
+      AutoMihoyoBBS_autorun: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set run mode (workflow_dispatch override)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_mode != '' }}
+        run: echo "RUN_MODE=${{ inputs.run_mode }}" >> "$GITHUB_ENV"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore config files from secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p config
+
+          if [ -n "${MIHOYO_CONFIG_TGZ_BASE64:-}" ]; then
+            echo "${MIHOYO_CONFIG_TGZ_BASE64}" | base64 -d > /tmp/mhy_config.tgz
+            tar -xzf /tmp/mhy_config.tgz -C config
+          elif [ -n "${MIHOYO_CONFIG_YAML:-}" ]; then
+            printf "%s" "${MIHOYO_CONFIG_YAML}" > config/config.yaml
+          else
+            echo "缺少配置：请在仓库 Secrets 中设置 MIHOYO_CONFIG_YAML 或 MIHOYO_CONFIG_TGZ_BASE64" >&2
+            exit 1
+          fi
+
+          if [ -n "${MIHOYO_PUSH_INI:-}" ]; then
+            printf "%s" "${MIHOYO_PUSH_INI}" > config/push.ini
+          fi
+          if [ -n "${MIHOYO_LOGGING_INI:-}" ]; then
+            printf "%s" "${MIHOYO_LOGGING_INI}" > config/logging.ini
+          fi
+
+      - name: Run
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="${RUN_MODE:-multi}"
+          if [ "${mode}" = "single" ]; then
+            python main.py
+          else
+            python main_multi.py autorun
+          fi
