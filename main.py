@@ -28,8 +28,11 @@ class StatusCode(Enum):
 def check_github_actions() -> None:
     """检查是否在GitHub Actions环境运行"""
     if os.getenv('GITHUB_ACTIONS') == 'true':
-        log.error("请不要在 GitHub Action 运行本项目")
-        exit(0)
+        if os.getenv("AUTO_MIHOYO_ALLOW_GITHUB_ACTIONS") == "1":
+            log.warning("检测到 GitHub Actions 环境：已通过 AUTO_MIHOYO_ALLOW_GITHUB_ACTIONS=1 显式允许运行")
+            return
+        log.error("检测到 GitHub Actions 环境，默认禁止运行。若你确认要在 Actions 中执行，请设置环境变量 AUTO_MIHOYO_ALLOW_GITHUB_ACTIONS=1")
+        exit(1)
 
 
 def initialize_config() -> Tuple[bool, Optional[str]]:
