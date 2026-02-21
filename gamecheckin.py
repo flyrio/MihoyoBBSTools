@@ -233,8 +233,12 @@ class ZZZ(GameCheckin):
 
 
 def checkin_game(game_name, game_module, game_print_name=""):
-    game_config = config.config["games"]["cn"][game_name]
-    if game_config["checkin"]:
+    cn_games = config.config.get("games", {}).get("cn", {})
+    game_config = cn_games.get(game_name)
+    if not isinstance(game_config, dict):
+        log.warning(f"配置缺少 games.cn.{game_name}，已跳过该游戏签到")
+        return ''
+    if game_config.get("checkin", False):
         time.sleep(random.randint(2, 8))
         if game_print_name == "":
             game_print_name = game_name
